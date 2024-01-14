@@ -3,7 +3,8 @@ import mysql.connector
 from mysql.connector import errorcode
 
 app = Flask(__name__)
-
+current_user_id = None
+successful_request = "Successful request"
 
 def connection_db():
     config = {
@@ -28,6 +29,7 @@ def connection_db():
         print("well done")
         return cnx
         # cnx.close()
+
 
 try:
     connection = connection_db()
@@ -60,10 +62,12 @@ def register_query(username, password):
         # If the username is not taken, proceed with user registration
         insert_query = f"INSERT INTO user (name, password) VALUES ('{username}', SHA2('{password}', 256))"
         cursor.execute(insert_query)
+        get_current_user_query = f"select user_id from user where name = '{username}' and password = sha2('{password}',256)"
+        cursor.execute(get_current_user_query)
+        global current_user_id
+        current_user_id = cursor.fetchone()[0]
         connection.commit()
-
-        return "User registered successfully"
-
+        return successful_request #"User registered successfully"
 
 
 @app.route('/register', methods=['POST'])
@@ -86,7 +90,7 @@ def register_route():
 
 ################### login #######################
 @app.route('/login', methods=['GET'])
-def register_button():
+def login_button():
     return render_template('login.html')
 
 
@@ -96,18 +100,31 @@ def login_route():
         username = request.form['fname']
         password = request.form['passw']
 
-        login_query(username, password)
+        result = login_query(username, password)
+        return result
     else:
         return redirect(url_for('index'))
 
 
 def login_query(username, password):
+    if connection.is_connected():
+        cursor = connection.cursor()
+
+        # Check if the username is already taken
+        check_query = f"select user_id from user where name = '{username}' and password = sha2('{password}',256)"
+        cursor.execute(check_query)
+        result = cursor.fetchone()
+        if result:
+            global current_user_id
+            current_user_id = result[0]
+            return successful_request #"Login successfully"
+        else:
+            return "Username or password invalid"
+    else:
+        return "connection invalid"
 
 
-def login(username, password):
-    pass
-
-
+############################## logout #########################
 def logout():
     pass
 
